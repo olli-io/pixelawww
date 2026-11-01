@@ -411,8 +411,8 @@ pub fn img_pad(img: &Image, dimensions: (u32, u32), color: [u8; 4]) -> Box<[u8]>
     let mut padded = Vec::with_capacity(padded_h * padded_w * channels);
 
     let img = if img.width > dimensions.0 || img.height > dimensions.1 {
-        let left = (img.width - dimensions.0) / 2;
-        let top = (img.height - dimensions.1) / 2;
+        let left = img.width.saturating_sub(dimensions.0) / 2;
+        let top = img.height.saturating_sub(dimensions.1) / 2;
         img.crop(left, top, dimensions.0, dimensions.1)
     } else {
         img.crop(0, 0, dimensions.0, dimensions.1)
@@ -427,10 +427,11 @@ pub fn img_pad(img: &Image, dimensions: (u32, u32), color: [u8; 4]) -> Box<[u8]>
         padded.extend_from_slice(color);
     }
 
-    // Calculate left and right border widths. `u32::div` rounds toward 0, so, if `img_w` is odd,
-    // add an extra pixel to the right border to ensure the row is the correct width.
+    // Calculate left and right border widths. `usize::div` rounds toward 0, so, if
+    // `padded_w - img_w` is odd, add an extra pixel to the right border to ensure the row is the
+    // correct width.
     let left_border_w = (padded_w - img_w) / 2;
-    let right_border_w = left_border_w + (img_w % 2);
+    let right_border_w = left_border_w + ((padded_w - img_w) % 2);
 
     for row in 0..img_h {
         for _ in 0..left_border_w {
@@ -701,4 +702,94 @@ pub fn make_transition(img: &cli::Img) -> ipc::Transition {
 
     common::log::debug!("transition: {transition:#?}");
     transition
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn solid_image(width: u32, height: u32, format: PixelFormat, pixel: [u8; 4]) -> Image {
+        let channels = format.channels() as usize;
+        let mut bytes = Vec::with_capacity(width as usize * height as usize * channels);
+        for _ in 0..(width * height) {
+            bytes.extend_from_slice(&pixel[..channels]);
+        }
+        Image {
+            width,
+            height,
+            format,
+            bytes: bytes.into_boxed_slice(),
+        }
+    }
+
+    #[test]
+    fn img_pad_preserves_row_stride_across_parities() {
+        let fg = [10, 20, 30, 255];
+        let bg = [1, 2, 3, 255];
+
+        for padded_w in [10u32, 11] {
+            for padded_h in [8u32, 9] {
+                for img_w in [4u32, 5, padded_w] {
+                    for img_h in [4u32, 5, padded_h] {
+                        let img = solid_image(img_w, img_h, PixelFormat::Argb, fg);
+                        let out = img_pad(&img, (padded_w, padded_h), bg);
+                        assert_eq!(out.len(), (padded_w * padded_h * 4) as usize);
+
+                        let top_pad = ((padded_h - img_h) / 2) as usize;
+                        let left_pad = ((padded_w - img_w) / 2) as usize;
+                        let right_pad = (padded_w as usize) - (img_w as usize) - left_pad;
+
+                        // Check a row inside the image region is not skewed
+                        let row_idx = top_pad;
+                        let row_start = row_idx * (padded_w as usize) * 4;
+                        let row = &out[row_start..row_start + (padded_w as usize) * 4];
+
+                        // Note: PixelFormat::Argb swaps R and B on `bg` inside `img_pad`
+                        let channels = img.format.channels() as usize;
+                        let expected_bg = [bg[2], bg[1], bg[0], bg[3]];
+                        for px in row[..left_pad * channels].chunks_exact(channels) {
+                            assert_eq!(px, expected_bg);
+                        }
+                        for px in row[left_pad * channels..(left_pad + img_w as usize) * channels]
+                            .chunks_exact(channels)
+                        {
+                            assert_eq!(px, fg);
+                        }
+                        for px in
+                            row[(padded_w as usize - right_pad) * channels..].chunks_exact(channels)
+                        {
+                            assert_eq!(px, expected_bg);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn img_pad_mixed_oversized_dimensions_does_not_underflow() {
+        let fg = [10, 20, 30, 255];
+        let bg = [0, 0, 0, 255];
+
+        let wide_short = solid_image(20, 4, PixelFormat::Argb, fg);
+        let out = img_pad(&wide_short, (11, 9), bg);
+        assert_eq!(out.len(), 11 * 9 * 4);
+
+        let narrow_tall = solid_image(4, 20, PixelFormat::Argb, fg);
+        let out = img_pad(&narrow_tall, (11, 9), bg);
+        assert_eq!(out.len(), 11 * 9 * 4);
+    }
+
+    #[test]
+    fn img_resize_fit_odd_target_dimensions() {
+        let fg = [100, 150, 200, 255];
+        let bg = [0, 0, 0, 255];
+
+        // 1500x681 and 540x810 onto 1919x1080 (from issue #527)
+        for (src_w, src_h) in [(150, 68), (54, 81)] {
+            let img = solid_image(src_w, src_h, PixelFormat::Argb, fg);
+            let out = img_resize_fit(&img, (191, 108), FilterType::Box, bg).unwrap();
+            assert_eq!(out.len(), 191 * 108 * 4);
+        }
+    }
 }
