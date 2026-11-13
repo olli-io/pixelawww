@@ -64,24 +64,33 @@ Then in `configuration.nix`:
 
 ## Features
 
- - Display animated gifs on your desktop
- - Display any image in the formats:
-   * avif
-   (note: must have `dav1d` dependency and compile with `--features=avif` flag)
-   * jpeg
-   * jpegxl (only static jxls are supported)
-   * png
-   * gif
-   * pnm
-   * tga
-   * tiff
-   * webp
-   * bmp
-   * farbfeld
-   * svg (only static svgs are supported)
- - Clear the screen with an arbitrary rrggbb color
+ - Display animated GIFs, PNGs and WEBPs on your desktop
+ - Support for various static image formats for display on your desktop
+ - Clear the screen with an arbitrary `rrggbb` color
  - Smooth transition effect when you switch images
  - Do all of that without having to shutdown and reinitialize the daemon
+
+## Image Support
+
+| Format | Type | Is enabled by default | Notes |
+| --- | --- | --- | --- |
+| AVIF | static | No | Enable by building with `--features=avif` flag |
+| BMP | static | Yes |  |
+| DDS | static | Yes |  |
+| OpenEXR | static | Yes |  |
+| Farbfeld | static | Yes |  |
+| GIF | static, animated | Yes |  |
+| Radiance HDR | static | Yes |  |
+| ICO | static | Yes |  |
+| JPG | static | Yes |  |
+| JPEG XL | static | No | Enable by building with `--features=jxl` flag  |
+| PNG | static, animated | Yes |  |
+| Portable Anymap | static | Yes |  |
+| QOI | static | Yes |  |
+| SVG | static | Yes |  |
+| TGA | static | Yes |  |
+| TIFF | static | Yes |  |
+| WEBP | static, animated | Yes |  |
 
 ## Why
 

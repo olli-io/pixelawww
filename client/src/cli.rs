@@ -197,6 +197,9 @@ pub enum Awww {
     ///You may use this to find out valid values for the <awww-img --outputs> option. If you want
     ///more detailed information about your outputs, I would recommend trying wlr-randr.
     Query(Query),
+
+    ///Prints information related to build and features supported.
+    About(About),
 }
 
 #[derive(Parser)]
@@ -321,6 +324,13 @@ pub struct Query {
     /// commands will be sent to every namespace you have specified.
     #[arg(short, long, default_value = "")]
     pub namespace: Vec<String>,
+}
+
+#[derive(Parser)]
+pub struct About {
+    /// Print the information in `json` format
+    #[arg(short, long, default_value = "false")]
+    pub json: bool,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, ValueEnum)]

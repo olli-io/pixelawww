@@ -27,6 +27,7 @@ fn main() -> Result<(), String> {
         Awww::Unpause(unpause) => unpause.all,
         Awww::Kill(kill) => kill.all,
         Awww::Query(query) => query.all,
+        Awww::About(about) => about.json,
     };
 
     let namespaces = if all {
@@ -44,6 +45,7 @@ fn main() -> Result<(), String> {
             Awww::Unpause(unpause) => unpause.namespace.clone(),
             Awww::Kill(kill) => kill.namespace.clone(),
             Awww::Query(query) => query.namespace.clone(),
+            Awww::About(_about) => Vec::new(),
         }
     };
 
@@ -67,6 +69,10 @@ fn main() -> Result<(), String> {
         if let Some(info) = process_awww_args(&awww, namespace)? {
             infos.push(info);
         }
+    }
+
+    if let Awww::About(ref about) = awww {
+        print_about(about.json);
     }
 
     if !infos.is_empty() {
@@ -194,6 +200,7 @@ fn make_request(args: &Awww, namespace: &str) -> Result<Option<RequestSend>, Str
         Awww::Unpause(_) => Ok(Some(RequestSend::Unpause)),
         Awww::Kill(_) => Ok(Some(RequestSend::Kill)),
         Awww::Query(_) => Ok(Some(RequestSend::Query)),
+        Awww::About(_) => Ok(None),
     }
 }
 
@@ -514,4 +521,33 @@ fn restore_output(output: &str, namespace: &str) -> Result<(), String> {
         namespace,
     )?;
     Ok(())
+}
+
+fn print_about(is_json: bool) {
+    let animated_formats = vec!["gif", "png", "webp"];
+    let mut static_formats = vec![
+        "bmp", "dds", "exr", "ff", "gif", "hdr", "ico", "jpeg", "png", "pnm", "qoi", "svg", "tga", "tiff", "webp",
+    ];
+    #[cfg(any(feature = "all-formats", feature = "avif"))]
+    static_formats.push("avif");
+    #[cfg(any(feature = "all-formats", feature = "jxl"))]
+    static_formats.push("jxl");
+
+    static_formats.sort();
+    if is_json {
+        use jzon::{object, stringify_pretty};
+        let item = object! {
+            version: env!("CARGO_PKG_VERSION"),
+            static_formats: static_formats,
+            animated_formats: animated_formats,
+        };
+        println!("{}", stringify_pretty(item, 4));
+    } else {
+        println!("Version: {}", env!("CARGO_PKG_VERSION"));
+        println!("Supported static formats: {}", static_formats.join(", "));
+        println!(
+            "Supported animated formats: {}",
+            animated_formats.join(", ")
+        );
+    }
 }

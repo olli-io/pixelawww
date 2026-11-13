@@ -26,6 +26,9 @@ awww - An Answer to your Wayland Wallpaper Woes
 *query*
 	Asks the daemon to print output information (names and dimensions)
 
+*about*
+	Prints information regarding version and supported image formats
+
 *help [COMMAND]*
 	Print help or the help of the given command
 
