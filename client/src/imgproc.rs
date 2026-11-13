@@ -19,6 +19,12 @@ use crate::cli::{CropGravity, ResizeStrategy};
 
 use super::cli;
 
+fn jxl_decode_limits() -> image::Limits {
+    let mut limits = image::Limits::default();
+    limits.max_alloc = Some(2 * 1024 * 1024 * 1024);
+    limits
+}
+
 pub enum Format {
     Image(ImageFormat),
     JpegXL,
@@ -54,9 +60,10 @@ impl ImgBuf {
             std::fs::read(path).map_err(|e| format!("failed to read file: {e}"))?
         };
 
-        let reader = image::ImageReader::new(Cursor::new(&bytes))
+        let mut reader = image::ImageReader::new(Cursor::new(&bytes))
             .with_guessed_format()
             .map_err(|e| format!("failed to read image: {e}"))?;
+        reader.limits(jxl_decode_limits());
 
         let format = reader.format();
         let is_animated = match format {
@@ -150,9 +157,10 @@ pub struct VectorImage<'a>(&'a Tree);
 impl RasterImage<'_> {
     pub fn decode(&self, format: PixelFormat) -> Result<Image, String> {
         let imgbuf = self.0;
-        let reader = image::ImageReader::new(Cursor::new(&imgbuf.bytes))
+        let mut reader = image::ImageReader::new(Cursor::new(&imgbuf.bytes))
             .with_guessed_format()
             .map_err(|e| format!("failed to read image: {e}"))?;
+        reader.limits(jxl_decode_limits());
         let dynimage = reader
             .decode()
             .map_err(|e| format!("failed to decode image: {e}"))?;
